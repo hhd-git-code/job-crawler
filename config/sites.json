@@ -1,0 +1,111 @@
+{
+  "_note": "站点配置。选择器为候选列表，按顺序尝试，先命中的为准。站点改版只改这里，不改代码。",
+
+  "common": {
+    "_delayNote": "关键词之间的随机延迟（毫秒）。只许调大，不许调小 —— 高频请求会把偶发限流撞成持续封锁。",
+    "keywordDelayMs": [10000, 18000]
+  },
+
+  "sites": {
+    "boss": {
+      "name": "BOSS直聘",
+      "_loginNote": "在用户自己的 Safari 里登录一次，登录态跟着 Safari 走。登录页 https://www.zhipin.com/web/user/?sign=1",
+      "homeUrl": "https://www.zhipin.com/",
+      "_searchUrlNote": "实测 /web/geek/job 会被 302 到 /web/geek/jobs，直接写 jobs 避免多一跳。城市码来自 zhipin.com/wapi/zpCommon/data/city.json：全国=100010000。",
+      "searchUrlTemplate": "https://www.zhipin.com/web/geek/jobs?query={kw}&city={city}&page={page}",
+
+      "_captchaNote": "命中即停手交人工，不写破解逻辑（项目红线）。texts 是按可见文字匹配，selectors 是 CSS。",
+      "captchaCheck": {
+        "selectors": [".geetest_panel", "[class*='verify-']", "#captcha", "[class*='captcha']"],
+        "texts": []
+      },
+
+      "_cardNote": "2026-10-14 Safari 实测：li.job-card-box 命中。旧的 .job-card-wrapper 已不存在，不要再用。",
+      "cardSelectors": ["li.job-card-box", ".job-card-box"],
+
+      "fields": {
+        "_note": "实测结构：li.job-card-box > div.job-info > (div.job-title > a.job-name + span.job-salary) + ul.tag-list；div.job-card-footer > a.boss-info > span.boss-name + span.company-location",
+        "title": [".job-name", ".job-title .job-name"],
+        "salary": [".job-salary"],
+        "company": [".boss-name", ".company-name"],
+        "area": [".company-location", ".job-area"],
+        "tags": [".tag-list li"]
+      },
+      "linkSelector": "a[href*='/job_detail/']",
+
+      "_queryEchoNote": "搜索框会把当前关键词回显出来。用它核对页面确实换了关键词，防止读到上一次的结果。",
+      "queryEchoSelector": "input[placeholder*='搜索职位']",
+
+      "salaryDecode": {
+        "_note": "BOSS 把薪资数字替换成私用区码位（U+E031=0 … U+E03A=9），再用 kanzhun-mix 字体画出真数字，直接读文本只能得到「-K」。破解办法：在页面里用 canvas 把码位画出来，与 0-9 的像素逐位比对。实测 10 个码位全部「像素级完全相同」（距离 0），次选距离 ≥87，无歧义。不写死映射表 —— 字体随时可能换，现场比对才稳。",
+        "fontStack": "40px kanzhun-mix, kanzhun-Regular, sans-serif",
+        "puaRange": [57344, 63743],
+        "referenceChars": "0123456789",
+        "canvas": [48, 56]
+      },
+
+      "pagination": {
+        "_note": "BOSS 搜索页是无限滚动，没有「下一页」按钮。滚到底自动加载下一批。",
+        "mode": "scroll",
+        "maxRounds": 2,
+        "settleMs": 2600,
+        "maxCards": 90
+      },
+
+      "tagRoles": {
+        "_note": "卡片的 .tag-list 里混放经验和学历，按内容判别（顺序不固定，不能按位置取）",
+        "degree": "本科|大专|硕士|博士|中专|高中|学历不限|初中",
+        "experience": "\\d+-\\d+年|\\d+年以上|\\d+年|应届|经验不限|在校"
+      }
+    },
+
+    "liepin": {
+      "name": "猎聘",
+      "_loginNote": "在用户自己的 Safari 里登录，登录态实测会过期 —— 每次抓之前都要确认。登录页 https://passport.liepin.com/login",
+      "homeUrl": "https://www.liepin.com/",
+      "searchUrlTemplate": "https://www.liepin.com/zhaopin/?key={kw}&dqs={city}",
+      "_searchUrlNote": "城市参数是 dqs，不是 city。全国 = dqs=410（从页面筛选面板的 data-code 读出来的，别猜；天津 = 030，北京 = 010）。用 city= 或 dqs=050020 都会搜成别的城市（050020 是广州）。",
+
+      "_captchaNote": "「安全中心」按可见文字匹配，其余按 CSS。命中即停手交人工。",
+      "captchaCheck": {
+        "selectors": [".geetest_panel", "[class*='verify-']", "[class*='captcha']"],
+        "texts": ["安全中心"]
+      },
+
+      "_cardNote": "2026-10-14 Safari 实测：新版猎聘的类名变成了驼峰式 .jobCardPcContainer（旧版是 kebab 的 .job-card-pc-container）。大部分局部类名是每次构建都变的哈希（如 _40108qjbMk），只能用语义类名和结构选择器。注意 data-tlg-elem-id 这个属性卡片和内层 a 上都有，拿它当选择器会把每条岗位数成两条。",
+      "cardSelectors": [".jobCardPcContainer"],
+
+      "fields": {
+        "_note": "卡片结构：div.jobCardPcContainer > a[data-nick=job-detail-job-info] > (div > [div.jobTitleBox > div[title] + div>span.ellipsis-1] + span←薪资) + (div > span←经验/学历)；公司名在 .companyName（在 a 外面）",
+        "title": [".jobTitleBox div[title]", ".jobTitleBox .ellipsis-1"],
+        "salary": ["a[data-nick='job-detail-job-info'] > div:first-child > span", ".jobTitleBox + span"],
+        "company": [".companyName"],
+        "area": [".jobTitleBox span.ellipsis-1", ".jobTitleBox div:nth-child(2) span"],
+        "tags": ["a[data-nick='job-detail-job-info'] > div:nth-child(2) > span"],
+        "recruiter": [".recruiterName", ".recruiter-info-box"]
+      },
+      "linkSelector": "a[data-nick='job-detail-job-info']",
+
+      "_excludeFromTextNote": "招聘者那一栏每张卡都有，里面写着「谷女士·猎头顾问」。不剔掉的话 outsourcing 的「猎头」关键词会把一大片岗位误标成外包。招聘者是不是猎头单独用 isHeadhunter 标。",
+      "excludeFromText": [".recruiter-info-box", ".jobCardRightBox"],
+
+      "_textExtractNote": "薪资/经验/学历的类名是哈希，结构选择器一旦改版就废。配一组正则兜底：DOM 取不到就退回卡片纯文本匹配。",
+      "textExtract": {
+        "salary": "[0-9]+(?:\\.[0-9]+)?\\s*[-–~]\\s*[0-9]+(?:\\.[0-9]+)?\\s*[kK](?:\\s*[·x×*]\\s*[0-9]+\\s*薪)?|[0-9]+\\s*[kK]\\s*(?:以上|以下)|面议",
+        "experience": "应届生?|在校|[0-9]+年以内|[0-9]+-[0-9]+年|[0-9]+年以上|经验不限",
+        "degree": "统招本科|统招大专|本科|大专|硕士|博士|中专|高中|学历不限"
+      },
+
+      "pagination": {
+        "_note": "猎聘是传统分页（有页码），不是无限滚动，所以不滚动。翻页参数尚未打通 —— 目前每个关键词只取第一页。要做全量得先摸清猎聘的分页 URL/点击方式，别用猜的。",
+        "mode": "none",
+        "maxCards": 60
+      },
+
+      "tagRoles": {
+        "degree": "统招本科|统招大专|本科|大专|硕士|博士|中专|高中|学历不限|初中",
+        "experience": "[0-9]+-[0-9]+年|[0-9]+年以上|[0-9]+年以内|应届生?|在校|经验不限"
+      }
+    }
+  }
+}

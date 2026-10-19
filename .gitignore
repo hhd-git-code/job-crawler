@@ -1,0 +1,14 @@
+# 抓取数据：体积大，可重跑
+data/
+
+# 抓取产物：带时间戳，可重跑
+output/
+
+# 个人简历画像：含个人隐私，仅本地保留。参考 config/resume-profile.example.md
+config/resume-profile.md
+
+# 依赖
+node_modules/
+
+# 系统
+.DS_Store

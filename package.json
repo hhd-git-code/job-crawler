@@ -1,0 +1,11 @@
+{
+  "name": "job-crawler",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "全国车载测试岗位抓取与匹配（BOSS直聘 + 猎聘，个人求职用）",
+  "scripts": {
+    "crawl": "node scripts/safari-crawl.mjs",
+    "report": "node scripts/report.mjs"
+  }
+}

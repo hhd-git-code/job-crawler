@@ -124,6 +124,13 @@ function relevanceScore(job) {
 const roleCfg = kwCfg.excludeRoles ?? { terms: [], matchIn: ['title', 'tags'] };
 const roleFields = roleCfg.matchIn ?? ['title', 'tags'];
 const roleTerms = roleCfg.terms ?? [];
+// 正则规则用于表达「除非」：命中 pattern 且不含 unless 才剔除。
+// 例：车身域控整体不投，但「座舱应用测试（仪表、车身控制、HMI）」主体是座舱，要留。
+const roleRegex = (roleCfg.regex ?? []).map((r) => ({
+  label: r.unless ? `${r.pattern}（除 ${r.unless}）` : r.pattern,
+  re: new RegExp(r.pattern),
+  unless: r.unless ? new RegExp(r.unless) : null,
+}));
 
 function termHit(text, term) {
   const hay = text.toLowerCase();
@@ -137,7 +144,10 @@ function excludedRoleOf(job) {
   const text = roleFields
     .map((f) => (Array.isArray(job[f]) ? job[f].join(' ') : job[f] ?? ''))
     .join(' ');
-  return roleTerms.find((t) => termHit(text, t)) ?? '';
+  const term = roleTerms.find((t) => termHit(text, t));
+  if (term) return term;
+  const rule = roleRegex.find((r) => r.re.test(text) && !(r.unless && r.unless.test(text)));
+  return rule ? rule.label : '';
 }
 
 const scored = [];
